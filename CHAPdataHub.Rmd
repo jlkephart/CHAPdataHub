@@ -1,0 +1,286 @@
+---
+title: "Environmental Summary"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+runtime: shiny
+---
+
+```{r setup, echo=FALSE}
+library(flexdashboard)
+library(googlesheets)
+library(tidyverse)
+library(knitr)
+library(plotly)
+
+key <- "1wJQdngMbyDgtSbP9U1yRz7oj5JpjaD0-4N7Zq9sucic"
+  
+  sheet <- gs_key(key)
+  
+#  gs_download(sheet, to = "gs_data.xlsx", overwrite = TRUE)
+#  gs_group <- readxl::read_excel("gs_data.xlsx",sheet = "group")
+   gs_group <- gs_read_csv(sheet, ws="group")
+   
+  group <- gs_group %>%
+    mutate(ID = paste0(0,as.character(hid))) %>%
+    select(-hid)
+
+ 
+  
+
+
+
+```
+
+PM 2.5
+==================
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### PM 2.5 throughout the day
+
+```{r}
+ ###Create hourly line graph
+  
+#  pmc_bl_hrmea <- readxl::read_excel("gs_data.xlsx",sheet = "pmc_bl_hrmea")
+#  pmc_m1_hrmea <- readxl::read_excel("gs_data.xlsx",sheet = "pmc_m1_hrmea")
+#  pmp_bl_hrmea <- readxl::read_excel("gs_data.xlsx",sheet = "pmp_bl_hrmea")
+#  pmp_m1_hrmea <- readxl::read_excel("gs_data.xlsx",sheet = "pmp_m1_hrmea")
+  
+  pmc_bl_hrmea <-   gs_read_csv(sheet, ws = "pmc_bl_hrmea")
+  pmp_bl_hrmea <-   gs_read_csv(sheet, ws = "pmp_bl_hrmea")
+  pmc_m1_hrmea <-   gs_read_csv(sheet, ws = "pmc_m1_hrmea")
+  pmp_m1_hrmea <-   gs_read_csv(sheet, ws = "pmp_m1_hrmea")
+  
+  
+  q <- ggplot(data = pmc_bl_hrmea, aes(x=hr,y=ugm3, group = 1)) 
+  q <- q + geom_line(aes(hr,ugm3, color="Kitchen", linetype = "Baseline")) +
+    geom_line(aes(x=hr, y=ugm3, color="Kitchen", linetype = "Month 1"),data=pmc_m1_hrmea) +
+    geom_line(aes(x=hr, y=ugm3, color="Personal", linetype = "Baseline"),data=pmp_bl_hrmea) +
+    geom_line(aes(x=hr, y=ugm3, color="Personal", linetype = "Month 1"),data=pmp_m1_hrmea) + 
+    ylab("PM2.5 ug/m3")+ 
+    xlab("Hour of Day") + 
+    ggtitle("Uncalibrated PM2.5 - Hourly Averages") +
+    theme(legend.title = element_blank())
+
+  p <- plotly_build(q)
+  p
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### PM 2.5 Data Collection
+
+```{r}
+ ###create table 1
+#  gs_pmtable1 <- readxl::read_excel("gs_data.xlsx",sheet = "pmtable1")
+  gs_pmtable1 <- gs_read_csv(sheet, ws = "pmtable1")
+    
+  gs_pmtable1 <- gs_pmtable1 %>%
+    filter(row_number()==n()) 
+  
+  pmtab_c_bl <- gs_pmtable1 %>%
+    select(1:6) %>%
+    mutate(houses = houses_c_bl) %>%
+    mutate(n_samples = n_samples_c_bl) %>%
+    mutate(hr_per_sample = hr_per_sample_c_bl) %>%
+    mutate(total_mins = as.numeric(total_mins_c_bl)) %>%
+    mutate(sample_mean = as.numeric(sample_mean_c_bl)) %>%
+    select(houses,n_samples,hr_per_sample,total_mins,sample_mean)
+    
+  pmtab_p_bl <- gs_pmtable1 %>%
+    select(1,7:11) %>%
+    mutate(houses = houses_p_bl) %>%
+    mutate(n_samples = n_samples_p_bl) %>%
+    mutate(hr_per_sample = hr_per_sample_p_bl) %>%
+    mutate(total_mins = as.numeric(total_mins_p_bl)) %>%
+    mutate(sample_mean = as.numeric(sample_mean_p_bl)) %>%
+    select(houses,n_samples,hr_per_sample,total_mins,sample_mean)
+  
+  pmtab_c_m1 <- gs_pmtable1 %>%
+    select(1,12:16) %>%
+    mutate(houses = houses_c_m1) %>%
+    mutate(n_samples = n_samples_c_m1) %>%
+    mutate(hr_per_sample = hr_per_sample_c_m1) %>%
+    mutate(total_mins = as.numeric(total_mins_c_m1)) %>%
+    mutate(sample_mean = as.numeric(sample_mean_c_m1)) %>%
+    select(houses,n_samples,hr_per_sample,total_mins,sample_mean)
+  
+  pmtab_p_m1 <- gs_pmtable1 %>%
+    select(1,17:21) %>%
+    mutate(houses = houses_p_m1) %>%
+    mutate(n_samples = n_samples_p_m1) %>%
+    mutate(hr_per_sample = hr_per_sample_p_m1) %>%
+    mutate(total_mins = as.numeric(total_mins_p_m1)) %>%
+    mutate(sample_mean = as.numeric(sample_mean_p_m1)) %>%
+    select(houses,n_samples,hr_per_sample,total_mins,sample_mean)
+  
+  
+  pmtable1 <- as.data.frame(bind_rows(pmtab_c_bl,pmtab_c_m1,pmtab_p_bl,pmtab_p_m1)) 
+  
+  row.names(pmtable1) <- c("Kitchen: Baseline","Kitchen: Month 1","Personal: Baseline","Personal: Month 1")
+  colnames(pmtable1) <- c("Households", "N of samples","Hours per sample","Total mins","Mean conc. (ug/m3)")
+  
+  ## take out mean concentrations for now - because not distinguising intervention status
+    pmtable1 <- pmtable1 %>%
+    select(-`Mean conc. (ug/m3)`)
+
+kable(pmtable1, digits = 1) 
+```
+
+### Kitchen 24-hour Concentrations Between Baseline and Month 1
+
+```{r}
+###create boxplot
+  
+  ###Kitchen
+  
+#  gs_pmbox_c <-   readxl::read_excel("gs_data.xlsx",sheet = "pmbox_c") 
+  gs_pmbox_c <- gs_read_csv(sheet, ws = "pmbox_c")
+  
+  pmbox_c <- gs_pmbox_c %>%
+    mutate(ID = substr(samp,1,6)) %>%
+    mutate(Date = substr(samp,8,16)) %>%
+    select(ID, Date, ugm3, Expo, Sample)
+  
+  pmbox_c <- as.data.frame(pmbox_c, row.names = FALSE)
+  pmbox_c <- left_join(pmbox_c,group) 
+
+  pmbox_c <- pmbox_c %>% filter(is.na(Group)==FALSE)
+  #Exclude participants not randomized yet
+  
+    pmbox_c$samp = factor(pmbox_c$Sample)
+    
+    a <- ggplot(data = pmbox_c, aes(x=samp, y=ugm3))
+    b <- a + 
+      geom_line(aes(group = ID),  alpha = 0.2, size = 0.5) + 
+      geom_boxplot(outlier.shape = NA, alpha = 0.3)+
+      geom_point(alpha = 0.2, size = 2) +
+      xlab("") + ylab("PM2.5 ug/m3") +
+#      scale_y_log10(limits = c(1,1500), breaks = c(1,10,100,1000)) +
+      theme_bw() +
+      theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(size = 13), axis.text.y = element_text(size = 13), legend.text = element_text(size = 13), legend.title = element_text(size = 13)) 
+
+
+ggplotly(b)
+
+```
+ 
+ 
+```{bad eval=FALSE} 
+
+  ###Personal
+  
+#  gs_pmbox_p <-   readxl::read_excel("gs_data.xlsx",sheet = "pmbox_p") 
+  gs_pmbox_p <- gs_read_csv(sheet, ws = "pmbox_p")
+  
+  pmbox_p <- gs_pmbox_p %>%
+    mutate(ID = substr(samp,1,6)) %>%
+    mutate(Date = substr(samp,8,16)) %>%
+    select(ID, Date, ugm3, Expo, Sample)
+  
+  pmbox_p <- as.data.frame(pmbox_p, row.names = FALSE)
+  pmbox_p <- left_join(pmbox_p,group)
+  
+  output$pmbox_p <- renderPlot({
+    p <- ggplot(data = pmbox_p, aes(x=Sample, y=ugm3))
+    p + geom_boxplot(outlier.shape = NA) + 
+#      geom_jitter(position = position_jitter(w=0.005,h=0), alpha = 0.7) + 
+      geom_point(alpha = 0.5) +
+ #     geom_hline(yintercept = 25, color="darkgrey", size = 1,show.legend = TRUE) +
+      xlab("") + ylab("PM2.5 ug/m3") +
+      geom_line(aes(group = ID, color=Group),  alpha = 0.5, size = 1) +
+      scale_y_log10(limits = c(1,1500), breaks = c(1,10,100,1000)) +
+      theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(size = 13), axis.text.y = element_text(size = 13)) 
+      
+    })
+
+```
+
+
+CO
+==================
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Chart A CO
+
+```{r}
+
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+
+```
+
+### Chart C
+
+```{r}
+
+```
+
+
+NO2
+==================
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Chart A
+
+```{r}
+
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+
+```
+
+### Chart C
+
+```{r}
+
+```
+
+
+Stove Use
+==================
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### Chart A
+
+```{r}
+
+```
+
+Column {data-width=350}
+-----------------------------------------------------------------------
+
+### Chart B
+
+```{r}
+
+```
+
+### Chart C
+
+```{r}
+
+```
+
